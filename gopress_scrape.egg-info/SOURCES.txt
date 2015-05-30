@@ -1,0 +1,7 @@
+setup.py
+gopress-scrape/__init__.py
+gopress_scrape.egg-info/PKG-INFO
+gopress_scrape.egg-info/SOURCES.txt
+gopress_scrape.egg-info/dependency_links.txt
+gopress_scrape.egg-info/not-zip-safe
+gopress_scrape.egg-info/top_level.txt

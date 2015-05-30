@@ -3,7 +3,7 @@
 # Functions #
 #############
 # Wrapper
-def GoPress(username,password,zoekstring, publicaties, van, tot,max,output = [], init=0,van_init={},browser="chrome"):
+def GoPress(username,password,zoekstring, publicaties, van, tot,max=100,output = [], init=0,van_init={},browser="chrome"):
     import sys
     print("########################################################################")
     print("                              Zoekopdracht                              ")
@@ -11,13 +11,16 @@ def GoPress(username,password,zoekstring, publicaties, van, tot,max,output = [],
     print("Zoekstring: " + zoekstring)
     print_string = "Publicaties: "
     for publicatie in publicaties:
-        print_string += publicatie + ", "
+        print_string += publicatie["naam"] + ", "
     print(print_string[:-2])
 
     # Zet publicaties in 1 string om in naam van gesavede file te gebruiken
     publicaties_string = ""
     for publicatie in publicaties:
-        publicaties_string+= publicatie
+        if publicatie["editie"] == "":
+            publicaties_string+= publicatie["naam"]
+        else:
+            publicaties_string+= publicatie["naam"] + " " + publicatie["editie"]
 
     # Tijdsperiode
     print("Tijdsinterval: " + van["dag"] + " " + van["maand"] + " " + van["jaar"] +
@@ -43,7 +46,7 @@ def GoPress(username,password,zoekstring, publicaties, van, tot,max,output = [],
         except FileNotFoundError:
             output = list()
             print("Geen reeds opgehaalde artikels....")
-        
+
     print(" ")
     print("########################################################################")
     print("                 Start GoPress Webscraping Algoritme                    ")
@@ -172,8 +175,31 @@ def searchGoPress(driverGoPress,zoekstring, publicaties, van, tot):
 
     # Now select publications
     for publicatie in publicaties:
-        css_selector_string = "div[data-value='" + publicatie + "']"
-        driverGoPress.find_element(By.CSS_SELECTOR, css_selector_string).find_element_by_class_name("sources-logo").click()
+        # Eerst correcte type
+        types = driverGoPress.find_element_by_id("sources-type")
+        if publicatie["type"] == "krant":
+            types.find_element_by_id("sources-newspapers").click()
+        elif publicatie["type"] == "magazine":
+            types.find_element_by_id("sources-magazines").click()
+        elif publicatie["type"] == "twitter":
+            types.find_element_by_id("sources-twitter").click()
+
+        # Dan naam, afhankelijk van editie
+        css_selector_string = "div[data-value='" + publicatie["naam"] + "']"
+        if publicatie["editie"] == "":
+            driverGoPress.find_element(By.CSS_SELECTOR, css_selector_string).find_element_by_class_name("sources-logo").click()
+        else:
+            driverGoPress.find_element(By.CSS_SELECTOR, css_selector_string).find_element_by_class_name("sources-open-editions").click()
+            while "display: none;" in driverGoPress.find_element(By.CSS_SELECTOR, css_selector_string).find_element_by_class_name("sources-arrow-editions").get_attribute("style"):
+                continue
+
+            sources_scroll = driverGoPress.find_element_by_id("sources-editions-group").find_elements_by_class_name("sources-scroll-editions")
+            for i in range(len(sources_scroll)):
+                if "display: block;" in sources_scroll[i].get_attribute("style"):
+                    for j in range(len(publicatie["editie"])):
+                        css_selector_string_editie = "div[data-value='" + publicatie["naam"] + "__" + publicatie["editie"][j] + "']"
+                        driverGoPress.find_element(By.CSS_SELECTOR, css_selector_string_editie).find_element_by_class_name("sources-logo").click()
+                    break
 
     # Zoek!
     driverGoPress.find_element_by_class_name("sources-search").click()
@@ -352,9 +378,13 @@ def scrapeGoPress(search_data, username,password,zoekstring, publicaties,max, va
                 output[-1]["tekst"] += paragraaf.text + " "
 
             # Zet publicaties in 1 string om in naam van gesavede file te gebruiken
+            # Zet publicaties in 1 string om in naam van gesavede file te gebruiken
             publicaties_string = ""
             for publicatie in publicaties:
-                publicaties_string+= publicatie
+                if publicatie["editie"] == "":
+                    publicaties_string+= publicatie["naam"]
+                else:
+                    publicaties_string+= publicatie["naam"] + " " + publicatie["editie"]
 
             # Save dit resultaat via pickle
             pickle.dump(output, open("results/" +
